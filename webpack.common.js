@@ -3,6 +3,9 @@ const path = require('path')
 const CopyPlugin = require('copy-webpack-plugin')
 const HtmlWebpackPlugin = require('html-webpack-plugin')
 const WorkboxPlugin = require('workbox-webpack-plugin')
+const fs = require('fs')
+const https = require('https')
+
 // https://webpack.js.org/guides/production/
 
 const config = {
@@ -72,7 +75,9 @@ const config = {
       patterns: [
         { from: path.join(__dirname, '/styles.css'), to: './styles.css' },
         { from: path.join(__dirname, '/node_modules/prismarine-viewer/public/blocksStates/'), to: './blocksStates/' },
-        { from: path.join(__dirname, '/node_modules/prismarine-viewer/public/textures/'), to: './textures/' },
+        { from: './node_modules/prismarine-viewer/public/textures/*.png', to: './textures/[name][ext]' },
+        { from: './node_modules/prismarine-viewer/public/textures/1.16.4/entity/', to: './textures/1.16.4/entity/' },
+        { from: './node_modules/prismarine-viewer/public/textures/1.17.1/gui/*.png', to: './textures/1.17.1/gui/[name][ext]' },
         { from: path.join(__dirname, '/node_modules/prismarine-viewer/public/worker.js'), to: './' },
         { from: path.join(__dirname, '/node_modules/prismarine-viewer/public/supportedVersions.json'), to: './' },
         { from: path.join(__dirname, 'assets/'), to: './' },
@@ -80,7 +85,35 @@ const config = {
         { from: path.join(__dirname, 'config.json'), to: './config.json' }
       ]
     })
+  ],
+  externals: [
+    // This removes some large unnecessary data from the bundle
+    function (req, cb) {
+      if (req.context.includes('minecraft-data') && req.request.endsWith('.json')) {
+         const fileName = req.request.split('/').pop().replace('.json', '')
+        const blocked = ['blocksB2J', 'blocksJ2B', 'blockMappings', 'steve', 'recipes']
+        if (blocked.includes(fileName)) {
+          cb(null, [])
+          return
+        }
+      }
+      cb()
+    }
   ]
 }
 
 module.exports = config
+
+// This loads data from the MCWiki if it is not already present
+fetchExternalData({
+  'https://static.wikia.nocookie.net/minecraft_gamepedia/images/4/44/InvSprite.png': path.resolve(__dirname, 'assets', 'invsprite.png')
+})
+
+function fetchExternalData (externals) {
+  for (const [url, loc] of Object.entries(externals)) {
+    if (fs.existsSync(loc)) return
+    // Download the file from url into loc, with https
+    const stream = fs.createWriteStream(loc)
+    https.get(url, (res) => res.pipe(stream))
+  }
+}
