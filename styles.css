@@ -4,6 +4,7 @@
   --chatWidth: 320px;
   --chatHeight: 180px;
   --chatScale: 1;
+  --fontFamily: Verdana;
 }
 
 * {
@@ -32,13 +33,8 @@ html {
 }
 
 @font-face {
-    font-family: minecraft;
-    src: url(minecraftia.woff);
-}
-
-@font-face {
-    font-family: mojangles;
-    src: url(mojangles.ttf);
+  font-family: minecraftia;
+  src: url(minecraftia.woff);
 }
 
 body {
@@ -84,7 +80,7 @@ canvas {
   image-rendering: -o-crisp-edges;
   image-rendering: pixelated;
   -ms-interpolation-mode: nearest-neighbor;
-  font-family: minecraft, mojangles, monospace;
+  font-family: var(--fontFamily);
 }
 
 @media only screen and (max-width: 971px) {
