@@ -1,4 +1,5 @@
 /* global THREE */
+require('./lib/theme')
 require('./lib/chat')
 
 require('./lib/menus/components/button')
@@ -21,6 +22,8 @@ require('./lib/menus/title_screen')
 
 const net = require('net')
 const Cursor = require('./lib/cursor')
+const splash = require('./lib/splash')
+window.splash = splash
 
 // Workaround for process.versions.node not existing in the browser
 process.versions.node = '14.0.0'
@@ -50,64 +53,22 @@ const renderer = new THREE.WebGLRenderer()
 renderer.setPixelRatio(window.devicePixelRatio || 1)
 renderer.setSize(window.innerWidth, window.innerHeight)
 document.body.appendChild(renderer.domElement)
+window.requestPointerLock = () => {
+  if (window.hasPointerLock()) return
+  // If this fails with "DOMException: The user has exited the lock before this request was completed."
+  // you need to wait for `window.isPointerLocked` to be false before calling this
+  renderer?.domElement?.requestPointerLock()
+}
+window.releasePointerLock = () => {
+  document.exitPointerLock()
+}
+window.hasPointerLock = (element) => {
+  return element ? (document.pointerLockElement === element) : !!document.pointerLockElement
+}
 
 // Create viewer
 const viewer = new Viewer(renderer)
-
-// Menu panorama background
-function addPanoramaCubeMap () {
-  let time = 0
-  viewer.camera = new THREE.PerspectiveCamera(85, window.innerWidth / window.innerHeight, 0.05, 1000)
-  viewer.camera.updateProjectionMatrix()
-  viewer.camera.position.set(0, 0, 0)
-  viewer.camera.rotation.set(0, 0, 0)
-  const panorGeo = new THREE.BoxGeometry(1000, 1000, 1000)
-
-  const loader = new THREE.TextureLoader()
-  const panorMaterials = [
-    new THREE.MeshBasicMaterial({ map: loader.load('extra-textures/background/panorama_1.png'), transparent: true, side: THREE.DoubleSide }), // WS
-    new THREE.MeshBasicMaterial({ map: loader.load('extra-textures/background/panorama_3.png'), transparent: true, side: THREE.DoubleSide }), // ES
-    new THREE.MeshBasicMaterial({ map: loader.load('extra-textures/background/panorama_4.png'), transparent: true, side: THREE.DoubleSide }), // Up
-    new THREE.MeshBasicMaterial({ map: loader.load('extra-textures/background/panorama_5.png'), transparent: true, side: THREE.DoubleSide }), // Down
-    new THREE.MeshBasicMaterial({ map: loader.load('extra-textures/background/panorama_0.png'), transparent: true, side: THREE.DoubleSide }), // NS
-    new THREE.MeshBasicMaterial({ map: loader.load('extra-textures/background/panorama_2.png'), transparent: true, side: THREE.DoubleSide }) // SS
-  ]
-
-  const panoramaBox = new THREE.Mesh(panorGeo, panorMaterials)
-
-  panoramaBox.onBeforeRender = () => {
-    time += 0.01
-    panoramaBox.rotation.y = Math.PI + time * 0.01
-    panoramaBox.rotation.z = Math.sin(-time * 0.001) * 0.001
-  }
-
-  const group = new THREE.Object3D()
-  group.add(panoramaBox)
-
-  const Entity = require('prismarine-viewer/viewer/lib/entity/Entity')
-  for (let i = 0; i < 42; i++) {
-    const m = new Entity('1.16.4', 'squid').mesh
-    m.position.set(Math.random() * 30 - 15, Math.random() * 20 - 10, Math.random() * 10 - 17)
-    m.rotation.set(0, Math.PI + Math.random(), -Math.PI / 4, 'ZYX')
-    const v = Math.random() * 0.01
-    m.children[0].onBeforeRender = () => {
-      m.rotation.y += v
-      m.rotation.z = Math.cos(panoramaBox.rotation.y * 3) * Math.PI / 4 - Math.PI / 2
-    }
-    group.add(m)
-  }
-
-  viewer.scene.add(group)
-  return group
-}
-
-const panoramaCubeMap = addPanoramaCubeMap()
-
-function removePanorama () {
-  viewer.camera = new THREE.PerspectiveCamera(document.getElementById('options-screen').fov, window.innerWidth / window.innerHeight, 0.1, 1000)
-  viewer.camera.updateProjectionMatrix()
-  viewer.scene.remove(panoramaCubeMap)
-}
+window.viewer = viewer
 
 let animate = () => {
   window.requestAnimationFrame(animate)
@@ -130,7 +91,6 @@ async function main () {
     const options = e.detail
     menu.style = 'display: none;'
     showEl('loading-screen')
-    removePanorama()
     connect(options)
   })
 }
@@ -144,6 +104,23 @@ async function connect (options) {
   const optionsScrn = document.getElementById('options-screen')
   const keyBindScrn = document.getElementById('keybinds-screen')
   const gameMenu = document.getElementById('pause-screen')
+
+  function hideAllScreens () {
+    for (const screen of document.querySelectorAll('.pmui')) {
+      screen.style.display = 'none'
+    }
+  }
+  window.showScreen = (screen) => {
+    switch (screen) {
+      case 'options': optionsScrn.style.display = 'block'; return
+      case 'keybinds': keyBindScrn.style.display = 'block'; return
+      case 'gameMenu': gameMenu.style.display = 'block'; return
+      case 'chat': chat.style.display = 'block'; return
+      case 'debug': debugMenu.style.display = 'block'; return
+      case 'hud': hud.style.display = 'block'; return
+      case 'loading': loadingScreen.style.display = 'block'
+    }
+  }
 
   const viewDistance = optionsScrn.renderDistance
   const hostprompt = options.server
@@ -171,7 +148,7 @@ async function connect (options) {
 
   if (proxy) {
     console.log(`using proxy ${proxy} ${proxyport}`)
-    net.setProxy({ hostname: proxy, port: proxyport })
+    net.setProxy({ protocol: 'wss', hostname: proxy, port: proxyport })
   }
 
   loadingScreen.status = 'Logging in'
@@ -189,25 +166,34 @@ async function connect (options) {
   })
   hud.preload(bot)
 
+  function showErrorScreen (message, htmlContent) {
+    renderer.dispose()
+    renderer.domElement.remove()
+    loadingScreen.setError(message, htmlContent)
+    hideAllScreens()
+    window.showScreen('loading')
+    splash.showBackground()
+  }
+
   bot.on('error', (err) => {
     console.log('Encountered error!', err)
-    loadingScreen.status = `Error encountered. Error message: ${err}. Please reload the page`
-    loadingScreen.style = 'display: block;'
-    loadingScreen.hasError = true
+    showErrorScreen(`Error encountered: ${err}`)
   })
 
   bot.on('kicked', (kickReason) => {
     console.log('User was kicked!', kickReason)
-    loadingScreen.status = `The Minecraft server kicked you. Kick reason: ${kickReason}. Please reload the page to rejoin`
-    loadingScreen.style = 'display: block;'
-    loadingScreen.hasError = true
+    if (bot.registry) {
+      const ChatMessage = require('prismarine-chat')(bot.registry)
+      const chatMessage = new ChatMessage(JSON.parse(kickReason))
+      showErrorScreen('The Minecraft server kicked you. Kick reason:', '<br/>' + chatMessage.toHTML())
+    } else {
+      showErrorScreen(`The Minecraft server kicked you. Kick reason: ${kickReason}`)
+    }
   })
 
   bot.on('end', (endReason) => {
     console.log('disconnected for', endReason)
-    loadingScreen.status = `You have been disconnected from the server. End reason: ${endReason}. Please reload the page to rejoin`
-    loadingScreen.style = 'display: block;'
-    loadingScreen.hasError = true
+    showErrorScreen(`You have been disconnected from the server. End reason: ${endReason}`)
   })
 
   bot.once('login', () => {
@@ -215,6 +201,8 @@ async function connect (options) {
   })
 
   bot.once('spawn', () => {
+    splash.removeBackground()
+
     const mcData = require('minecraft-data')(bot.version)
 
     loadingScreen.status = 'Placing blocks (starting viewer)'
@@ -240,7 +228,6 @@ async function connect (options) {
     window.worldView = worldView
     window.bot = bot
     window.mcData = mcData
-    window.viewer = viewer
     window.Vec3 = Vec3
     window.pathfinder = pathfinder
     window.debugMenu = debugMenu
@@ -282,18 +269,30 @@ async function connect (options) {
     }
 
     function changeCallback () {
-      if (document.pointerLockElement === renderer.domElement ||
-        document.mozPointerLockElement === renderer.domElement ||
-        document.webkitPointerLockElement === renderer.domElement) {
+      if (window.hasPointerLock(renderer.domElement)) {
         document.addEventListener('mousemove', moveCallback, false)
       } else {
+        // Per the Pointer Lock spec, there is a timeout after a pointer has been unlocked before it can be locked again:
+        // https://discourse.threejs.org/t/how-to-avoid-pointerlockcontrols-error/33017/4
+        // A requestPointerLock 6() call immediately after the default unlock gesture 2 MUST fail even when transient
+        // activation 4 is available, to prevent malicious sites from acquiring an unescapable locked state through
+        // repeated lock attempts. On the other hand, a requestPointerLock 6() call immediately after a programmatic
+        // lock exit (through a exitPointerLock 2() call) MUST succeed when transient activation 4 is available,
+        // to enable applications to move frequently between interaction modes, possibly through a timer or remote
+        // network activity.
+        window.isPointerBlocked = true
+        gameMenu.setCanReturnToGame(false)
+        setTimeout(() => {
+          window.isPointerBlocked = false
+          gameMenu.setCanReturnToGame(true)
+        }, 1250) // 1.25s per https://bugs.chromium.org/p/chromium/issues/detail?id=1127223
         document.removeEventListener('mousemove', moveCallback, false)
+        if (!chat.inChat && !gameMenu.inMenu) {
+          gameMenu.enableGameMenu(renderer)
+        }
       }
     }
-
     document.addEventListener('pointerlockchange', changeCallback, false)
-    document.addEventListener('mozpointerlockchange', changeCallback, false)
-    document.addEventListener('webkitpointerlockchange', changeCallback, false)
 
     let lastTouch
     document.addEventListener('touchmove', (e) => {
@@ -309,13 +308,9 @@ async function connect (options) {
     document.addEventListener('touchend', (e) => {
       lastTouch = undefined
     }, { passive: false })
-
-    renderer.domElement.requestPointerLock = renderer.domElement.requestPointerLock ||
-      renderer.domElement.mozRequestPointerLock ||
-      renderer.domElement.webkitRequestPointerLock
     document.addEventListener('mousedown', (e) => {
       if (!chat.inChat && !gameMenu.inMenu) {
-        renderer.domElement.requestPointerLock()
+        window.requestPointerLock()
       }
     })
 
@@ -325,70 +320,82 @@ async function connect (options) {
       bot.clearControlStates()
     }, false)
 
+    const codeFor = keyBindScrn.maps
     document.addEventListener('keydown', (e) => {
       if (chat.inChat) return
       if (gameMenu.inMenu) return
-
-      keyBindScrn.keymaps.forEach(km => {
-        if (e.code === km.key) {
-          switch (km.defaultKey) {
-            case 'KeyQ':
-              if (bot.heldItem) bot.tossStack(bot.heldItem)
-              break
-            case 'ControlLeft':
-              bot.setControlState('sprint', true)
-              break
-            case 'ShiftLeft':
-              bot.setControlState('sneak', true)
-              break
-            case 'Space':
-              bot.setControlState('jump', true)
-              break
-            case 'KeyD':
-              bot.setControlState('left', true)
-              break
-            case 'KeyA':
-              bot.setControlState('right', true)
-              break
-            case 'KeyS':
-              bot.setControlState('back', true)
-              break
-            case 'KeyW':
-              bot.setControlState('forward', true)
-              break
+      switch (e.code) {
+        case codeFor.drop.key:
+          if (bot.heldItem) bot.tossStack(bot.heldItem)
+          break
+        case codeFor.sprint.key:
+          bot.setControlState('sprint', true)
+          break
+        case codeFor.sneak.key:
+          bot.setControlState('sneak', true)
+          break
+        case codeFor.jump.key:
+          bot.setControlState('jump', true)
+          break
+        case codeFor.right.key:
+          bot.setControlState('right', true)
+          break
+        case codeFor.left.key:
+          bot.setControlState('left', true)
+          break
+        case codeFor.backward.key:
+          bot.setControlState('back', true)
+          break
+        case codeFor.forward.key:
+          bot.setControlState('forward', true)
+          break
+        case codeFor.chat.key:
+          setTimeout(() => chat.enableChat(false), 20)
+          break
+        case codeFor.command.key:
+          setTimeout(() => chat.enableChat(true), 20)
+          break
+        case 'Escape':
+          // This only handles if game isn't in focus, if it is, that'll be caught by the pointerlockchange event
+          if (chat.inChat) break
+          if (gameMenu.inMenu && !window.isPointerBlocked) {
+            gameMenu.disableGameMenu(renderer)
           }
-        }
-      })
+          break
+      }
     }, false)
 
     document.addEventListener('keyup', (e) => {
-      keyBindScrn.keymaps.forEach(km => {
-        if (e.code === km.key) {
-          switch (km.defaultKey) {
-            case 'ControlLeft':
-              bot.setControlState('sprint', false)
-              break
-            case 'ShiftLeft':
-              bot.setControlState('sneak', false)
-              break
-            case 'Space':
-              bot.setControlState('jump', false)
-              break
-            case 'KeyD':
-              bot.setControlState('left', false)
-              break
-            case 'KeyA':
-              bot.setControlState('right', false)
-              break
-            case 'KeyS':
-              bot.setControlState('back', false)
-              break
-            case 'KeyW':
-              bot.setControlState('forward', false)
-              break
-          }
-        }
-      })
+      if (chat.inChat || gameMenu.inMenu) {
+        bot.clearControlStates()
+        return
+      }
+      switch (e.code) {
+        case codeFor.drop.key:
+          if (bot.heldItem) bot.tossStack(bot.heldItem)
+          break
+        case codeFor.sprint.key:
+          bot.setControlState('sprint', false)
+          break
+        case codeFor.sneak.key:
+          bot.setControlState('sneak', false)
+          break
+        case codeFor.jump.key:
+          bot.setControlState('jump', false)
+          break
+        case codeFor.right.key:
+          bot.setControlState('right', false)
+          break
+        case codeFor.left.key:
+          bot.setControlState('left', false)
+          break
+        case codeFor.backward.key:
+          bot.setControlState('back', false)
+          break
+        case codeFor.forward.key:
+          bot.setControlState('forward', false)
+          break
+      }
     }, false)
 
     loadingScreen.status = 'Done!'
@@ -441,15 +448,16 @@ async function fromTheOutside (params, addr) {
   console.log(opts)
 
   showEl('loading-screen')
-  removePanorama()
   connect(opts)
 }
 
 const params = new URLSearchParams(window.location.search)
-let address
-if ((address = params.get('address'))) {
+const address = params.get('address')
+if (address) {
   fromTheOutside(params, address)
 } else {
   showEl('title-screen')
   main()
 }
+
+splash.showBackground()

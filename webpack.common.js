@@ -78,6 +78,7 @@ const config = {
         { from: './node_modules/prismarine-viewer/public/textures/*.png', to: './textures/[name][ext]' },
         { from: './node_modules/prismarine-viewer/public/textures/1.16.4/entity/', to: './textures/1.16.4/entity/' },
         { from: './node_modules/prismarine-viewer/public/textures/1.17.1/gui/*.png', to: './textures/1.17.1/gui/[name][ext]' },
+        { from: './node_modules/prismarine-viewer/public/textures/1.17.1/blocks/destroy_stage*', to: './textures/1.17.1/blocks/[name][ext]' },
         { from: path.join(__dirname, '/node_modules/prismarine-viewer/public/worker.js'), to: './' },
         { from: path.join(__dirname, '/node_modules/prismarine-viewer/public/supportedVersions.json'), to: './' },
         { from: path.join(__dirname, 'assets/'), to: './' },
@@ -90,8 +91,8 @@ const config = {
     // This removes some large unnecessary data from the bundle
     function (req, cb) {
       if (req.context.includes('minecraft-data') && req.request.endsWith('.json')) {
-         const fileName = req.request.split('/').pop().replace('.json', '')
-        const blocked = ['blocksB2J', 'blocksJ2B', 'blockMappings', 'steve', 'recipes']
+        const fileName = req.request.split('/').pop().replace('.json', '')
+        const blocked = ['blocksB2J', 'blocksJ2B', 'blockMappings', 'blockStates', 'steve', 'recipes']
         if (blocked.includes(fileName)) {
           cb(null, [])
           return
@@ -106,12 +107,14 @@ module.exports = config
 
 // This loads data from the MCWiki if it is not already present
 fetchExternalData({
-  'https://static.wikia.nocookie.net/minecraft_gamepedia/images/4/44/InvSprite.png': path.resolve(__dirname, 'assets', 'invsprite.png')
+  'https://static.wikia.nocookie.net/minecraft_gamepedia/images/4/44/InvSprite.png': path.resolve(__dirname, 'assets', 'invsprite.png'),
+  'https://bugs.mojang.com/secure/attachment/282067/gui.png': path.resolve(__dirname, 'extra-textures', 'gui.png')
 })
 
 function fetchExternalData (externals) {
   for (const [url, loc] of Object.entries(externals)) {
-    if (fs.existsSync(loc)) return
+    if (fs.existsSync(loc)) continue
+    console.log('Downloading', url, 'to', loc)
     // Download the file from url into loc, with https
     const stream = fs.createWriteStream(loc)
     https.get(url, (res) => res.pipe(stream))
