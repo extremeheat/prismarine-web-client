@@ -19,6 +19,7 @@ require('./lib/menus/loading_screen')
 require('./lib/menus/keybinds_screen')
 require('./lib/menus/options_screen')
 require('./lib/menus/title_screen')
+require('./lib/menus/about_screen')
 
 const net = require('net')
 const Cursor = require('./lib/cursor')
@@ -453,10 +454,18 @@ async function fromTheOutside (params, addr) {
 
 const params = new URLSearchParams(window.location.search)
 const address = params.get('address')
+const lastPage = window.localStorage.getItem('lastPage')
 if (address) {
   fromTheOutside(params, address)
 } else {
-  showEl('title-screen')
+  if (lastPage) {
+    // Restore the last page
+    console.log('Restoring page', lastPage)
+    showEl(lastPage)
+    window.localStorage.removeItem('lastPage')
+  } else {
+    showEl('title-screen')
+  }
   main()
 }
 
