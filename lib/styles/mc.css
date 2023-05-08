@@ -1,0 +1,108 @@
+/* Home */
+.dirt-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  transform-origin: top left;
+  transform: scale(2);
+  background-blend-mode: overlay;
+  background: url('textures/1.17.1/gui/options_background.png'), rgba(0, 0, 0, 0.75) !important;
+  background-size: 16px;
+  background-repeat: repeat;
+}
+
+.bg {
+  background: rgba(0, 0, 0, 0.75);
+}
+
+.minecraft {
+  position: absolute;
+  top: 30px;
+  left: calc(50% - 137px);
+}
+
+.minecraft .minec {
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  background-image: url('textures/1.17.1/gui/title/minecraft.png');
+  background-size: 256px;
+  width: 155px;
+  height: 44px;
+}
+
+.minecraft .raft {
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 155px;
+  background-image: url('textures/1.17.1/gui/title/minecraft.png');
+  background-size: 256px;
+  width: 155px;
+  height: 44px;
+  background-position-y: -45px;
+}
+
+.minecraft .edition {
+  display: block;
+  position: absolute;
+  top: 37px;
+  left: calc(88px + 5px);
+  background-image: url('extra-textures/edition.png');
+  background-size: 128px;
+  width: 88px;
+  height: 14px;
+}
+
+/* Slider */
+.slider-container::after,
+.slider-thumb::after {
+  content: '';
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 50%;
+  height: 20px;
+  background: url('textures/1.17.1/gui/widgets.png');
+  background-size: 256px;
+  background-position-y: var(--txrV);
+  z-index: -1;
+}
+
+.slider-container::before,
+.slider-thumb::before {
+  content: '';
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 50%;
+  height: 20px;
+  background: url('textures/1.17.1/gui/widgets.png');
+  background-size: 256px;
+  background-position-x: calc(-200px + 100%);
+  background-position-y: var(--txrV);
+  z-index: -1;
+}
+
+/* Buttons */
+.button::after {
+  background: url('textures/1.17.1/gui/widgets.png');
+  background-position-y: calc(var(--txrV) * -1);
+}
+
+.button::before {
+  background: url('textures/1.17.1/gui/widgets.png');
+  background-position-x: calc(-200px + 100%);
+  background-position-y: calc(var(--txrV) * -1);
+}
+
+/* Edit box */
+.edit-container {
+  background: black;
+  border: 1px solid grey;
+}

@@ -15,6 +15,9 @@ const config = {
     filename: './index.js',
     publicPath: './'
   },
+  module: {
+    rules: [{ test: /\.css$/, type: 'asset/source' }]
+  },
   resolve: {
     alias: {
       'minecraft-protocol': path.resolve(

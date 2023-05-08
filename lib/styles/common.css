@@ -1,0 +1,28 @@
+.bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* .screen-bg {
+  background: rgba(200, 200, 200, 0.1);
+} */
+
+.title {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translate(-50%);
+  font-size: 10px;
+  color: white;
+  text-align: center;
+  text-shadow: 1px 1px #222;
+}
+
+.text {
+  color: white;
+  font-size: 10px;
+  text-shadow: 1px 1px #222;
+}
