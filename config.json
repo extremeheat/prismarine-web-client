@@ -1,7 +1,7 @@
 {
   "defaultHost": "pjs.deptofcraft.com",
   "defaultHostPort": 25565,
-  "defaultProxy": "",
-  "defaultProxyPort": 0,
+  "defaultProxy": "pproxy.rom1504.fr",
+  "defaultProxyPort": 443,
   "defaultVersion": "1.18.2"
 }
