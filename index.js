@@ -172,8 +172,11 @@ async function connect (options) {
     renderer.domElement.remove()
     loadingScreen.setError(message, htmlContent)
     hideAllScreens()
-    window.showScreen('loading')
     splash.showBackground()
+    setTimeout(() => {
+      // Fixes a DOM issue where the loading screen is still visible
+      window.showScreen('loading')
+    }, 200)
   }
 
   bot.on('error', (err) => {
